@@ -6,7 +6,7 @@ import java.util.Set;
 import javax.ws.rs.ApplicationPath;
 import javax.ws.rs.core.Application;
  
-import org.bluelamar.fotracker.service.ConfigurationResource;
+import org.bluelamar.fotracker.service.FoodOrderResource;
  
 @ApplicationPath("/fotracker")
 public class FOTrackerApplication extends Application {
@@ -15,7 +15,7 @@ public class FOTrackerApplication extends Application {
    private Set<Class<?>> empty = new HashSet<Class<?>>();
  
    public FOTrackerApplication() {
-      singletons.add(new ConfigurationResource());
+      singletons.add(new FoodOrderResource());
    }
  
    @Override

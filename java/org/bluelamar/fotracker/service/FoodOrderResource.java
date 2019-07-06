@@ -32,7 +32,7 @@ import org.bluelamar.fotracker.model.FoodOrders;
  * */
 @Path("/order")
 @Produces(MediaType.APPLICATION_JSON)
-public class ConfigurationResource
+public class FoodOrderResource
 {
     /**
      * Use uriInfo to get current context path and to build HATEOAS links
@@ -41,7 +41,7 @@ public class ConfigurationResource
     UriInfo uriInfo;
      
     /**
-     * Get configurations collection resource mapped at path "HTTP GET /configurations"
+     * Get FoodOrder collection resource mapped at path "HTTP GET /order"
      * */
     @GET
     public FoodOrders getFoodOrders() {
@@ -68,7 +68,7 @@ public class ConfigurationResource
     }
       
     /**
-     * Get individual configuration resource mapped at path "HTTP GET /configurations/{id}"
+     * Get individual FoodOrder resource mapped at path "HTTP GET /order/{id}"
      * */
     @GET
     @Path("/{id}")
@@ -81,8 +81,8 @@ public class ConfigurationResource
         }
           
         if(config != null){
-            UriBuilder builder = UriBuilder.fromResource(ConfigurationResource.class)
-                                            .path(ConfigurationResource.class, "getConfigurationById");
+            UriBuilder builder = UriBuilder.fromResource(FoodOrderResource.class)
+                                            .path(FoodOrderResource.class, "getConfigurationById");
             Link link = Link.fromUri(builder.build(id)).rel("self").build();
             config.setLink(link);
         } */
@@ -93,7 +93,7 @@ public class ConfigurationResource
     }
      
     /**
-     * Create NEW configuration resource in configurations collection resource
+     * Create NEW FoodOrder resource in Food orders collection resource
      * */
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
@@ -112,7 +112,7 @@ public class ConfigurationResource
     }
 
     /**
-     * Delete configuration resource by it's "id" at path "/configurations/{id}"
+     * Delete FoodOrder resource by it's "id" at path "/order/{id}"
      * */
     @DELETE
     @Path("/{id}")
