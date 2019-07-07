@@ -6,12 +6,20 @@ import java.util.HashMap;
 import org.bluelamar.fotracker.model.*;
 
 public class FoodShelf {
+	
+	static class InvalidTempException extends Exception {
+		public InvalidTempException(String badTempStr) {
+			super("Invalid temp specified: " + badTempStr);
+		}
+	}
+	
 	public enum TempType {
 	    HOT,
 	    COLD, 
-	    FROZEN;
+	    FROZEN,
+	    AGNOSTIC;
 		
-		static public TempType xlate(String temp) throws Exception {
+		static public TempType xlate(String temp) throws InvalidTempException {
 			if (HOT.name().equalsIgnoreCase(temp)) {
 				return HOT;
 			}
@@ -21,14 +29,17 @@ public class FoodShelf {
 			if (FROZEN.name().equalsIgnoreCase(temp)) {
 				return FROZEN;
 			}
-			throw new Exception(); // FIX TODO create a checked exc
+			if (AGNOSTIC.name().equalsIgnoreCase(temp)) {
+				return AGNOSTIC;
+			}
+			throw new InvalidTempException(temp);
 		}
 	}
 	
 	int orderCnt;
 	final int maxCnt;
-	final TempType tempType;
-	final Map<Integer, Order> orders;
+	final TempType tempType;  // shelf holds items of this temp
+	final Map<Integer, TrackedOrder> orders;
 	
 	public FoodShelf(int maxCnt, TempType temp) {
 		this.maxCnt = maxCnt;
@@ -49,7 +60,7 @@ public class FoodShelf {
 		return tempType;
 	}
 	
-	public void addOrder(Order order) {
+	public void addOrder(TrackedOrder order) {
 		orders.put(order.getOrderID(), order);
 	}
 }

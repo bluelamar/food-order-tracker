@@ -1,11 +1,11 @@
 package org.bluelamar.fotracker.model;
 
-public class Order {
+public class TrackedOrder {
 	final int orderID;
 	FoodOrder foodOrder;
 	long orderTimeSecs;  // time order was made, in secs since Jan 1, 1970 UTC
 	
-	public Order(int orderID) {
+	public TrackedOrder(int orderID) {
 		this.orderID = orderID;
 	}
 	
