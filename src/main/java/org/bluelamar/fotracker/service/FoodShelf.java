@@ -6,7 +6,7 @@ import java.util.HashMap;
 import org.bluelamar.fotracker.model.*;
 
 public class FoodShelf {
-	
+	/* FIX
 	static class InvalidTempException extends Exception {
 		public InvalidTempException(String badTempStr) {
 			super("Invalid temp specified: " + badTempStr);
@@ -34,33 +34,35 @@ public class FoodShelf {
 			}
 			throw new InvalidTempException(temp);
 		}
-	}
+	} */
 	
-	int orderCnt;
 	final int maxCnt;
-	final TempType tempType;  // shelf holds items of this temp
+	final TrackedOrder.TempType tempType;  // shelf holds items of this temp
 	final Map<Integer, TrackedOrder> orders;
 	
-	public FoodShelf(int maxCnt, TempType temp) {
+	public FoodShelf(int maxCnt, TrackedOrder.TempType temp) {
 		this.maxCnt = maxCnt;
 		this.tempType = temp;
 		orders = new HashMap<>();
 	}
 	
-	public void setOrderCnt(int orderCnt) {
-		this.orderCnt = orderCnt;
-	}
 	public int getOrderCnt() {
-		return orderCnt;
+		return orders.size();
 	}
 	public int getMaxCnt() {
 		return maxCnt;
 	}
-	public TempType getTemp() {
+	public TrackedOrder.TempType getTemp() {
 		return tempType;
 	}
 	
 	public void addOrder(TrackedOrder order) {
 		orders.put(order.getOrderID(), order);
+	}
+	public TrackedOrder removeOrder(int orderID) {
+		return orders.remove(orderID);
+	}
+	public Map<Integer, TrackedOrder> getOrders() {
+		return orders;
 	}
 }
