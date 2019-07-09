@@ -16,13 +16,13 @@ public class FoodOrder {
     }
     
     @Override
-	public String toString() {
-		StringBuilder sb = new StringBuilder();
-		sb.append("Food[ name=").append(name).append(": temp=").
-			append(temp).append(": shelf-life=").append(shelfLife).
-			append(": decay-rate=").append(decayRate).append("]");
-		return sb.toString();
-	}
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Food[ name=").append(name).append(": temp=").
+            append(temp).append(": shelf-life=").append(shelfLife).
+            append(": decay-rate=").append(decayRate).append("]");
+        return sb.toString();
+    }
 
     public String getName() {
         return name;

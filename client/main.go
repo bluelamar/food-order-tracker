@@ -1,10 +1,13 @@
 package main
 
+// Test driver to send http post requests to the food-order-tracker server
+
 import (
+	"bytes"
 	"fmt"
 	"encoding/json"
 	"io/ioutil"
-	//"net/http"
+	"net/http"
 	"math"
 	"time"
 )
@@ -54,6 +57,35 @@ func sendOrder() bool {
 
 	order := OrderData[OrderIndex]
 	fmt.Printf("sendOrder: send: type=%T val=%v\n", order, order)
+
+	bytesRepresentation, err := json.Marshal(order)
+    if err != nil {
+		fmt.Println("Failed to marshal order: ", err)
+        return false
+    }
+
+	url := "http://localhost:8080/fot/fotracker/order"
+	request, err := http.NewRequest("POST", url, bytes.NewReader(bytesRepresentation))
+    if err != nil {
+		fmt.Println("Failed to create new request: ", err)
+        return false
+    }
+    request.Header.Set("Content-Type", "application/json")
+    request.Header.Set("Accept", "application/json")
+
+	client := &http.Client{
+        //Jar:     jar,
+        //Timeout: timeout,
+    }
+    resp, err := client.Do(request)
+    if err != nil {
+		fmt.Println("Failed to send request: ", err)
+        return false
+    }
+
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	fmt.Println("post:\n", string(body))
 
 	OrderIndex = OrderIndex + 1
 	return true
