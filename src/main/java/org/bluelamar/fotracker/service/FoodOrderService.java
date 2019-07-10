@@ -17,7 +17,6 @@ import org.slf4j.LoggerFactory;
 import org.bluelamar.fotracker.IdGenerator;
 import org.bluelamar.fotracker.Decayer;
 import org.bluelamar.fotracker.model.FoodOrder;
-import org.bluelamar.fotracker.model.FoodOrders;
 import org.bluelamar.fotracker.model.TrackedOrder;
 
 public class FoodOrderService implements Runnable {
@@ -89,7 +88,7 @@ public class FoodOrderService implements Runnable {
             (int)(to1.getPickupTimeSecs() - to2.getPickupTimeSecs());
         driverQueue = new PriorityQueue<>(comp);
         ses = Executors.newScheduledThreadPool(1);
-        ses.scheduleAtFixedRate(this, 1000, 1500, TimeUnit.MILLISECONDS);
+        ses.scheduleAtFixedRate(this, 1000, 1000, TimeUnit.MILLISECONDS);
     }
     
     public void Shutdown() {
@@ -105,13 +104,20 @@ public class FoodOrderService implements Runnable {
             return RetCode.BAD_REQ;
         }
         
-        FoodShelf shelf = shelves.get(tt);
-        if (shelf.getOrderCnt() == shelf.getMaxCnt()) {
-            if (overFlowShelf.getOrderCnt() == overFlowShelf.getMaxCnt()) {
-                LOG.error("PlaceOrder: Cannot place order: All shelves full");
-                return RetCode.UNAVAIL;
-            }
-            shelf = overFlowShelf;
+        // synchronize on overFlowShelf before the embedded temperature shelf
+        // since that is the same order it is done in the run method - avoid deadlock
+        FoodShelf shelf = null;
+        synchronized(overFlowShelf) {
+	        shelf = shelves.get(tt);
+	        synchronized(shelf) {
+		        if (shelf.getOrderCnt() == shelf.getMaxCnt()) {
+		            if (overFlowShelf.getOrderCnt() == overFlowShelf.getMaxCnt()) {
+		                LOG.error("PlaceOrder: Cannot place order: All shelves full");
+		                return RetCode.UNAVAIL;
+		            }
+		            shelf = overFlowShelf;
+		        }
+	        }
         }
         
         int id = idGenerator.generate();
@@ -119,7 +125,14 @@ public class FoodOrderService implements Runnable {
         to.setFoodOrder(forder);
         long orderTime = System.currentTimeMillis() / 1000;
         to.setOrderTimeSecs(orderTime);
-        shelf.addOrder(to);
+        try {
+        	synchronized(shelf) {
+                shelf.addOrder(to);
+        	}
+        } catch (FoodShelf.ShelfFullException|TrackedOrder.InvalidTempException exc) {
+        	LOG.error("PlaceOrder: Failed to place order: " + exc);
+        	return RetCode.INT_ERR;
+        }
         LOG.info("PlaceOrder: placed order on shelf: order=" + to);
         
         displayShelves();
@@ -168,7 +181,7 @@ public class FoodOrderService implements Runnable {
         /*
           Start pulling off orders from the driverQueue if they have arrived
           Process each order left on the shelves for decay
-          Transfer any over flow orders to temp shelves if available
+          Transfer any over flow orders to temperature shelves if available
         */
         long curTimeSecs = System.currentTimeMillis() / 1000;
         boolean checkDrivers = true;
@@ -184,14 +197,20 @@ public class FoodOrderService implements Runnable {
                     synchronized(shelf) {
                         to2 = shelf.removeOrder(to.getOrderID());
                     }
+                    boolean tempShelfRemoval = true;
                     if (to2 == null) {
+                    	tempShelfRemoval = false;
                         synchronized(overFlowShelf) {
                             to2 = overFlowShelf.removeOrder(to.getOrderID());
                         }
                     }
                     if (to2 != null) {
                         removedOrders = true;
-                        LOG.info("DQ.task: Remove delivered order from " + to.getTemp() + " shelf=" + to);
+                        if (tempShelfRemoval) {
+                            LOG.info("DQ.task: Remove delivered order from " + to.getTemp() + " shelf: order=" + to);
+                        } else {
+                        	LOG.info("DQ.task: Remove delivered order from Over-flow shelf: order=" + to);
+                        }
                     }
                 } else {
                     checkDrivers = false;
@@ -200,19 +219,19 @@ public class FoodOrderService implements Runnable {
         }
 
         // process the over flow shelf for decay
-        // seperate the temp types for removal to temp shelves if available space
+        // collect orders according to temperature for possible move to temp shelves
         PriorityQueue<TrackedOrder> ofHot = new PriorityQueue<>(decayRateCompOF);
         PriorityQueue<TrackedOrder> ofCold = new PriorityQueue<>(decayRateCompOF);
         PriorityQueue<TrackedOrder> ofFrzn = new PriorityQueue<>(decayRateCompOF);
         synchronized(overFlowShelf) {
             for (TrackedOrder to: overFlowShelf.getOrders().values()) {
                 long curTime = System.currentTimeMillis() / 1000;
-                long decay = foodDecayer.decay(to.getFoodOrder().getShelfLife(), curTime, to.getOrderTimeSecs(), to.getFoodOrder().getDecayRate());
+                long decay = foodDecayerOFlow.decay(to.getFoodOrder().getShelfLife(), curTime, to.getOrderTimeSecs(), to.getFoodOrder().getDecayRate());
                 if (decay <= 0) {
                     // remove the order
                     overFlowShelf.removeOrder(to.getOrderID());
                     removedOrders = true;
-                    LOG.info("DQ.task: Remove decayed order from Overflow shelf=" + to);
+                    LOG.info("DQ.task: Remove decayed order from Overflow shelf: order=" + to);
                 } else {
                     if (to.getTemp() == TrackedOrder.TempType.HOT) {
                         ofHot.add(to);
@@ -235,12 +254,13 @@ public class FoodOrderService implements Runnable {
                         // remove the order
                         fs.removeOrder(to.getOrderID());
                         removedOrders = true;
-                        LOG.info("DQ.task: Remove decayed order from " + to.getTemp() + " shelf=" + to);
+                        LOG.info("DQ.task: Remove decayed order from " + to.getTemp() + " shelf: order=" + to);
                     }
                 }
             }
 
-            // check if there is space on this shelf and if there are overflow items
+            // check if there is space on the temperature shelf and if there are overflow
+            // items of the same temperature type that can be moved
             PriorityQueue<TrackedOrder> pq = null;
             synchronized(overFlowShelf) {
                 if (!overFlowShelf.getOrders().isEmpty()) {
@@ -258,10 +278,14 @@ public class FoodOrderService implements Runnable {
                             for (int cnt = available; cnt > 0 && !pq.isEmpty(); cnt--) {
                                 TrackedOrder to = pq.poll();
                                 if (to != null) {
-                                    fs.addOrder(to);
-                                    overFlowShelf.removeOrder(to.getOrderID());
-                                    removedOrders = true;
-                                    LOG.info("DQ.task: Moved order from Overflow shelf to " + fs.getTemp() + " shelf=" + to);
+                                	try {
+	                                    fs.addOrder(to);
+	                                    overFlowShelf.removeOrder(to.getOrderID());
+	                                    removedOrders = true;
+	                                    LOG.info("DQ.task: Moved order from Overflow shelf to " + fs.getTemp() + " shelf: order=" + to);
+                                	} catch (FoodShelf.ShelfFullException|TrackedOrder.InvalidTempException exc) {
+                                		LOG.error("DQ.task: Failed to move order from Overflow shelf to temp shelf: Lost order=" + to + " : " + exc);
+                                	}
                                 }
                             }
                         }

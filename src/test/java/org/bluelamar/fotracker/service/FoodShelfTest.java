@@ -3,7 +3,10 @@
  */
 package org.bluelamar.fotracker.service;
 
+import org.bluelamar.fotracker.model.TrackedOrder;
+import org.bluelamar.fotracker.model.TrackedOrder.TempType;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -13,11 +16,18 @@ import org.junit.Test;
  */
 public class FoodShelfTest {
 
+	static final int MAX_CNT = 3;
+	
+	OrderIdGenerator idGenerator;
+	FoodShelf foodShelf;
+	
 	/**
 	 * @throws java.lang.Exception
 	 */
 	@Before
 	public void setUp() throws Exception {
+		foodShelf = new FoodShelf(MAX_CNT, TempType.COLD);
+		idGenerator = new OrderIdGenerator();
 	}
 
 	/**
@@ -32,7 +42,8 @@ public class FoodShelfTest {
 	 */
 	@Test
 	public void testFoodShelf() throws Exception {
-		throw new RuntimeException("not yet implemented");
+		FoodShelf shelf = new FoodShelf(-1, TempType.FROZEN);
+		Assert.assertEquals(FoodShelf.DEF_MAX_CNT, shelf.getMaxCnt());
 	}
 
 	/**
@@ -40,7 +51,8 @@ public class FoodShelfTest {
 	 */
 	@Test
 	public void testGetOrderCnt() throws Exception {
-		throw new RuntimeException("not yet implemented");
+		int orderCnt = foodShelf.getOrderCnt();
+		Assert.assertEquals(0, orderCnt);
 	}
 
 	/**
@@ -48,7 +60,8 @@ public class FoodShelfTest {
 	 */
 	@Test
 	public void testGetMaxCnt() throws Exception {
-		throw new RuntimeException("not yet implemented");
+
+		Assert.assertEquals(this.MAX_CNT, foodShelf.getMaxCnt());
 	}
 
 	/**
@@ -56,7 +69,7 @@ public class FoodShelfTest {
 	 */
 	@Test
 	public void testGetTemp() throws Exception {
-		throw new RuntimeException("not yet implemented");
+		Assert.assertEquals(TempType.COLD, foodShelf.getTemp());
 	}
 
 	/**
@@ -64,7 +77,37 @@ public class FoodShelfTest {
 	 */
 	@Test
 	public void testAddOrder() throws Exception {
-		throw new RuntimeException("not yet implemented");
+		TrackedOrder to = new TrackedOrder(idGenerator.generate(), TempType.COLD);
+		foodShelf.addOrder(to);
+		
+		try {
+			to = new TrackedOrder(idGenerator.generate(), TempType.HOT);
+			foodShelf.addOrder(to);
+			Assert.assertTrue(false);
+		} catch (TrackedOrder.InvalidTempException exc) {
+			Assert.assertTrue(true);
+		}
+		
+		FoodShelf oflowShelf = new FoodShelf(99, TempType.AGNOSTIC);
+		try {
+			to = new TrackedOrder(idGenerator.generate(), TempType.HOT);
+			oflowShelf.addOrder(to);
+			Assert.assertTrue(true);
+		} catch (TrackedOrder.InvalidTempException exc) {
+			Assert.assertTrue(false);
+		}
+		
+		to = new TrackedOrder(idGenerator.generate(), TempType.COLD);
+		foodShelf.addOrder(to);
+		to = new TrackedOrder(idGenerator.generate(), TempType.COLD);
+		foodShelf.addOrder(to);
+		try {
+			to = new TrackedOrder(idGenerator.generate(), TempType.COLD);
+			foodShelf.addOrder(to);
+			Assert.assertTrue(false);
+		} catch (FoodShelf.ShelfFullException exc) {
+			Assert.assertTrue(true);
+		}
 	}
 
 	/**
@@ -72,7 +115,16 @@ public class FoodShelfTest {
 	 */
 	@Test
 	public void testRemoveOrder() throws Exception {
-		throw new RuntimeException("not yet implemented");
+		TrackedOrder to = foodShelf.removeOrder(2019);
+		Assert.assertNull(to);
+		
+		int id = idGenerator.generate();
+		to = new TrackedOrder(id, TempType.COLD);
+		foodShelf.addOrder(to);
+		to = foodShelf.removeOrder(to.getOrderID());
+		Assert.assertNotNull(to);
+		
+		foodShelf.addOrder(to);
 	}
 
 	/**
@@ -80,7 +132,16 @@ public class FoodShelfTest {
 	 */
 	@Test
 	public void testGetOrders() throws Exception {
-		throw new RuntimeException("not yet implemented");
+		java.util.Map<Integer, TrackedOrder> orders = foodShelf.getOrders();
+		
+		int cnt = orders.size();
+		
+		TrackedOrder to = new TrackedOrder(idGenerator.generate(), TempType.COLD);
+		foodShelf.addOrder(to);
+		to = new TrackedOrder(idGenerator.generate(), TempType.COLD);
+		foodShelf.addOrder(to);
+		orders = foodShelf.getOrders();
+		Assert.assertEquals(cnt + 2, orders.size());
 	}
 
 }
